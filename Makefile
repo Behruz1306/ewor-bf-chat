@@ -21,7 +21,7 @@ test: build gen
 	cargo test
 
 review: build gen test
-	@echo "ok — ready to push. add demo video link to README when recorded."
+	@echo "ready"
 
 clean:
 	cargo clean
