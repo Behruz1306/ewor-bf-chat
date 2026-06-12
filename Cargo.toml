@@ -1,0 +1,15 @@
+[package]
+name = "bf-chat"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "bf-run"
+path = "src/main.rs"
+
+[[bin]]
+name = "bf-gen"
+path = "src/bin/gen.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
