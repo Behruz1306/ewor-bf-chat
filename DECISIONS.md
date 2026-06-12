@@ -6,7 +6,7 @@ NetFuck adds `^` / `v` for send/receive. I kept standard brainfuck symbols and o
 
 ## Rust runtime, logic in `.bf`
 
-The chat loop is in generated brainfuck. Rust interprets instructions and handles TCP — not the application logic.
+The chat loop is in generated brainfuck. Rust interprets instructions and handles TCP - not the application logic.
 
 ## Codegen
 
