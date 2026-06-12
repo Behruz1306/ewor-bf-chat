@@ -2,9 +2,28 @@
 
 EWOR builder case study — 1:1 chat in Brainfuck.
 
-Pure brainfuck can't open TCP sockets. So I added **BFA** (brainfuck + syscalls): in `--bfa` mode the `.` instruction triggers a syscall instead of printing a character. Cells 0–7 are the call frame (number in cell 7, args in 1–6, return in 0).
+## TL;DR (for reviewers)
 
-The `.bf` chat programs are generated from a tiny Rust codegen (`bf-gen`) because hand-writing socket setup in brainfuck would be… a lot of `+` signs.
+**Problem:** Brainfuck has 8 instructions and no way to open a TCP socket. The task asks for server + client 1:1 chat *in Brainfuck*.
+
+**Approach:** I added **BFA** — brainfuck where `.` triggers a syscall instead of printing. Cells 0–7 are the call frame. A small Rust codegen emits `server.bf` / `client.bf` because socket setup by hand would be thousands of `+` signs.
+
+**Demo:** two terminals, real TCP on `127.0.0.1:4242`. Logic lives in the `.bf` files; Rust is only the runtime.
+
+**Trade-offs:** blocking I/O, client must type first each round, no TLS. Good enough to prove the idea.
+
+**Video walkthrough:** *(paste your link here)*  
+`https://`
+
+---
+
+## demo video
+
+Record ~60 seconds: problem → `./target/release/bf-run --bfa` → two terminals chatting.
+
+Put the link above when ready. Loom / QuickTime / whatever is fine.
+
+---
 
 ## quick start
 
@@ -13,31 +32,81 @@ cargo build --release
 make gen        # writes programs/server.bf + programs/client.bf
 ```
 
-**Terminal 1 — host**
+### Terminal 1 — host
 
 ```bash
 make run-server
 ```
 
-**Terminal 2 — client**
+Wait for `peer connected — wait, client types first`.
+
+### Terminal 2 — client
 
 ```bash
 make run-client
 ```
 
-Type a line, press enter. Host sees it, type a reply on the host side, client sees it. Line-based, blocking, good enough for a demo.
+When you see `[client] type here> ` — **type here first**, then **Enter**.
 
-Port is hardcoded to **4242** on `127.0.0.1`.
+### chat flow (important)
 
-## layout
+This is turn-based, not WhatsApp.
+
+1. **Client** types a line → Enter  
+2. **Server** prints it, shows `[host] your reply>` → type → Enter  
+3. **Client** prints the reply  
+4. Repeat  
+
+Do **not** type on the server until you see `[host] your reply>`. Typing before that is just terminal echo — the program is still waiting for the client.
+
+Port: **4242** on localhost.
+
+---
+
+## architecture
+
+```mermaid
+flowchart LR
+  subgraph compile
+    GEN[bf-gen / codegen.rs]
+    GEN --> SBF[programs/server.bf]
+    GEN --> CBF[programs/client.bf]
+  end
+
+  subgraph runtime
+    RUN[bf-run --bfa]
+    SBF --> RUN
+    CBF --> RUN
+    RUN --> BFA[bfa.rs syscalls]
+    BFA --> TCP[TCP 127.0.0.1:4242]
+  end
+```
+
+Memory layout during a syscall:
+
+| cells | role |
+|-------|------|
+| 0 | return value |
+| 1–6 | args |
+| 7 | syscall id |
+| 8+ | program data (fds, buffers, sockaddr bytes) |
+
+---
+
+## repo layout
 
 ```
-programs/server.bf   # host: listen, accept one peer, relay lines
-programs/client.bf   # client: connect, relay lines
-src/bfa.rs           # interpreter + TCP syscalls
-src/codegen.rs       # emits the .bf from a higher-level plan
-src/bf.rs            # classic brainfuck mode (no syscalls)
+programs/server.bf   # host: listen, accept, relay
+programs/client.bf   # client: connect, relay
+src/bfa.rs           # BFA interpreter + TCP
+src/codegen.rs       # .bf emitter
+src/bf.rs            # plain brainfuck (no syscalls)
+DECISIONS.md         # why I chose what I chose
+notes.md             # dev log / bugs hit
+SUBMISSION.md        # blurb for the EWOR form
 ```
+
+---
 
 ## syscalls (BFA)
 
@@ -52,16 +121,24 @@ src/bf.rs            # classic brainfuck mode (no syscalls)
 | 13 | accept | fd                      |
 | 14 | connect| fd, addr*, len           |
 
-\*addr is laid out in the tape for realism; bind/connect currently use `127.0.0.1:4242` in the runtime.
+\*sockaddr bytes are written to the tape; runtime binds `127.0.0.1:4242` directly (macOS struct layout was not worth fighting in v1).
 
-Set `BF_TRACE=1` to log syscalls to stderr.
+Debug: `BF_TRACE=1 ./target/release/bf-run --bfa programs/server.bf`
 
-## tests
+---
+
+## tests & CI
 
 ```bash
 make test
 ```
 
-## notes
+GitHub Actions runs the same on push.
 
-See `notes.md` for the messy thought process.
+---
+
+## further reading
+
+- `DECISIONS.md` — design choices  
+- `notes.md` — bugs and rabbit holes  
+- `SUBMISSION.md` — copy-paste for the form

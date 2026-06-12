@@ -24,7 +24,13 @@ fourth bug: codegen pointer tracking drifted after `[` loops. dropped the "smart
 
 ## day 2 — chat loop
 
-not a fancy async thing. read line from peer → print. read line from stdin → send. blocking, turn-based feel but it's genuinely two processes talking over TCP and the logic is in `.bf`.
+not a fancy async thing. blocking line relay over TCP. logic is in `.bf`.
+
+## day 3 — UX + deadlock
+
+both sides waiting on network read = deadlock. fixed with asymmetric order: client stdin first, host network first. added `[client] type here>` prompts because I kept typing on the server terminal by mistake.
+
+also regenerated programs after fixing preserve-copy — if chat "doesn't work", make sure you `make gen` and restart both terminals.
 
 ## if I had another week
 
@@ -37,7 +43,11 @@ not a fancy async thing. read line from peer → print. read line from stdin →
 
 ```bash
 cargo build --release && make gen
-# two terminals:
+# terminal 1:
 make run-server
+# terminal 2:
 make run-client
+# type on CLIENT first, Enter, then reply on SERVER
 ```
+
+see README → "chat flow" if anything looks stuck.

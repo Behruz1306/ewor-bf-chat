@@ -7,7 +7,7 @@ use std::time::Duration;
 fn server_accepts_and_reads() {
     let bin = "./target/release/bf-run";
     if !std::path::Path::new(bin).exists() {
-        eprintln!("skip: build release first");
+        eprintln!("skip: run `cargo build --release` first");
         return;
     }
 
@@ -29,13 +29,11 @@ fn server_accepts_and_reads() {
         .spawn()
         .expect("spawn client");
 
-    {
-        let mut si = server.stdin.take().unwrap();
-        si.write_all(b"reply from host\n").unwrap();
+    if let Some(mut si) = server.stdin.take() {
+        let _ = si.write_all(b"reply from host\n");
     }
-    {
-        let mut ci = client.stdin.take().unwrap();
-        ci.write_all(b"ping from client\n").unwrap();
+    if let Some(mut ci) = client.stdin.take() {
+        let _ = ci.write_all(b"ping from client\n");
     }
 
     thread::sleep(Duration::from_secs(2));

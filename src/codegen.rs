@@ -139,6 +139,11 @@ impl Emitter {
         self.syscall(SYS_WRITE, 1, base as u8, len);
     }
 
+    fn say(&mut self, text: &str) {
+        self.write_str_at(BUF_NET, text);
+        self.write_stdout(BUF_NET, text.len() as u8);
+    }
+
     fn syscall_write_dynamic(&mut self, fd: u8, buf: u8, len_from: usize) {
         self.set_byte(7, SYS_WRITE);
         self.set_byte(1, fd);
@@ -185,8 +190,8 @@ impl Emitter {
         self.set_byte(SOCKADDR + 7, 1);
     }
 
-    fn chat_loop(&mut self, peer_cell: usize) {
-        // peer -> stdout
+    fn chat_loop_host(&mut self, peer_cell: usize) {
+        self.say("[host] waiting for client...\n");
         self.syscall_fd(SYS_READ, peer_cell, BUF_NET as u8, LINE_MAX);
         self.store_result(NREAD);
         self.goto(NREAD);
@@ -196,12 +201,34 @@ impl Emitter {
         self.goto(NREAD);
         self.raw("]");
 
-        // stdin -> peer
+        self.say("[host] your reply> ");
         self.syscall(SYS_READ, 0, BUF_IN as u8, LINE_MAX);
         self.store_result(NREAD);
         self.goto(NREAD);
         self.raw("[");
         self.syscall_write_fd(peer_cell, BUF_IN as u8, NREAD);
+        self.clear_cell(NREAD);
+        self.goto(NREAD);
+        self.raw("]");
+    }
+
+    fn chat_loop_client(&mut self, peer_cell: usize) {
+        self.say("[client] type here> ");
+        self.syscall(SYS_READ, 0, BUF_IN as u8, LINE_MAX);
+        self.store_result(NREAD);
+        self.goto(NREAD);
+        self.raw("[");
+        self.syscall_write_fd(peer_cell, BUF_IN as u8, NREAD);
+        self.clear_cell(NREAD);
+        self.goto(NREAD);
+        self.raw("]");
+
+        self.say("[client] waiting for host...\n");
+        self.syscall_fd(SYS_READ, peer_cell, BUF_NET as u8, LINE_MAX);
+        self.store_result(NREAD);
+        self.goto(NREAD);
+        self.raw("[");
+        self.syscall_write_dynamic(1, BUF_NET as u8, NREAD);
         self.clear_cell(NREAD);
         self.goto(NREAD);
         self.raw("]");
@@ -235,11 +262,11 @@ pub fn generate_server() -> String {
     e.syscall_fd(SYS_ACCEPT, SOCK_FD, 0, 0);
     e.store_result(PEER_FD);
 
-    e.write_str_at(BUF_NET, "peer connected\n");
-    e.write_stdout(BUF_NET, 15);
+    e.write_str_at(BUF_NET, "peer connected — wait, client types first\n");
+    e.write_stdout(BUF_NET, 44);
 
     e.infinite_loop_start();
-    e.chat_loop(PEER_FD);
+    e.chat_loop_host(PEER_FD);
     e.infinite_loop_end();
 
     e.finish()
@@ -258,7 +285,7 @@ pub fn generate_client() -> String {
     e.write_stdout(BUF_NET, 18);
 
     e.infinite_loop_start();
-    e.chat_loop(SOCK_FD);
+    e.chat_loop_client(SOCK_FD);
     e.infinite_loop_end();
 
     e.finish()

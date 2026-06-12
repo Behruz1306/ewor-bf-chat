@@ -1,4 +1,4 @@
-.PHONY: all build gen run-server run-client demo test clean
+.PHONY: all build gen run-server run-client demo test clean review
 
 all: build gen
 
@@ -19,6 +19,9 @@ demo: build gen
 
 test: build gen
 	cargo test
+
+review: build gen test
+	@echo "ok — ready to push. add demo video link to README when recorded."
 
 clean:
 	cargo clean
